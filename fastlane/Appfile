@@ -1,4 +1,4 @@
-app_identifier("com.promatchusa.app.check-in")
+app_identifier("com.checkin.mobile")
 apple_id(ENV["APPSTORE_CONNECT_APPLE_ID"])
 itc_team_id(ENV["APPSTORE_CONNECT_TEAM_ID"])
 team_id(ENV["DEVELOPER_PORTAL_TEAM_ID"])

@@ -12,7 +12,7 @@ platform :ios do
     )
 
     latest = latest_testflight_build_number(
-      app_identifier: "com.promatchusa.app.check-in",
+      app_identifier: "com.checkin.mobile",
       initial_build_number: 0
     )
 
@@ -30,7 +30,7 @@ platform :ios do
     )
 
     deliver(
-      app_identifier: "com.promatchusa.app.check-in",
+      app_identifier: "com.checkin.mobile",
       metadata_path: "fastlane/metadata",
       skip_binary_upload: true,
       skip_screenshots: false,
@@ -82,7 +82,7 @@ platform :ios do
     )
 
     deliver(
-      app_identifier: "com.promatchusa.app.check-in",
+      app_identifier: "com.checkin.mobile",
       app_version: version,
       metadata_path: "fastlane/metadata",
       skip_binary_upload: true,
