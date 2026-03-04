@@ -1,0 +1,98 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Validate App Store Connect auth + app access"
+  lane :asc_check do
+    app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      duration: 1200,
+      in_house: false
+    )
+
+    latest = latest_testflight_build_number(
+      app_identifier: "com.promatchusa.app.check-in",
+      initial_build_number: 0
+    )
+
+    UI.success("Connected to App Store Connect. Latest TestFlight build: #{latest}")
+  end
+
+  desc "Upload metadata/screenshots only (no binary)"
+  lane :metadata_only do
+    app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      duration: 1200,
+      in_house: false
+    )
+
+    deliver(
+      app_identifier: "com.promatchusa.app.check-in",
+      metadata_path: "fastlane/metadata",
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      submit_for_review: false,
+      automatic_release: false,
+      force: true
+    )
+  end
+
+  desc "Build + upload to TestFlight"
+  lane :testflight do
+    app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      duration: 1200,
+      in_house: false
+    )
+
+    increment_build_number(
+      xcodeproj: "check in.xcodeproj"
+    )
+
+    build_app(
+      project: "check in.xcodeproj",
+      scheme: "check in",
+      export_method: "app-store"
+    )
+
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      changelog: File.exist?("fastlane/metadata/en-US/release_notes.txt") ? File.read("fastlane/metadata/en-US/release_notes.txt") : nil
+    )
+  end
+
+  desc "Prepare App Store version + upload metadata (leave final Submit to you)"
+  lane :prep_release do |options|
+    app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      duration: 1200,
+      in_house: false
+    )
+
+    version = options[:version] || get_version_number(
+      xcodeproj: "check in.xcodeproj",
+      target: "check in"
+    )
+
+    deliver(
+      app_identifier: "com.promatchusa.app.check-in",
+      app_version: version,
+      metadata_path: "fastlane/metadata",
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      submit_for_review: false,
+      automatic_release: false,
+      precheck_include_in_app_purchases: false,
+      force: true
+    )
+
+    UI.success("Release metadata prepared for version #{version}. Open App Store Connect and press Submit when ready.")
+  end
+end
