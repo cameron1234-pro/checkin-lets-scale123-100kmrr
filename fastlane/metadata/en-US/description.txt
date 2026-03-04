@@ -1,9 +1,13 @@
-Check In helps teams and individuals run quick, consistent daily check-ins so everyone knows priorities, blockers, and wins without long meetings.
+CheckIn helps you stay connected and safer during commutes, meetups, travel, and daily routines.
 
-Use Check In to:
-- Post daily status updates in seconds
-- Track blockers and follow-up actions
-- Keep momentum with simple routines
-- Review progress over time
+Create quick check-in protocols, assign trusted emergency contacts, and update your status in real time.
 
-Designed for speed and clarity, Check In keeps communication lightweight while making accountability visible.
+Key features:
+- Start and manage active check-ins in seconds
+- Set trusted emergency contacts
+- One-tap SOS button for urgent situations
+- Danger alert status that notifies emergency contacts
+- Check-in history for past protocols
+- Simple onboarding and settings
+
+Whether you're heading home late, meeting someone new, or checking in during travel, CheckIn gives you a fast way to share status and trigger help when needed.
