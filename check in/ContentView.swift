@@ -43,6 +43,7 @@ struct ContentView: View {
         }
         .onOpenURL(perform: handleIncomingURL)
         .task {
+            applyScreenshotOverrides()
             await revenue.refreshEntitlements()
         }
     }
@@ -329,6 +330,23 @@ struct ContentView: View {
         unlocked = true
         selectedTab = .home
         statusMessage = "Paired to session \(sessionId)"
+    }
+
+    private func applyScreenshotOverrides() {
+        let args = CommandLine.arguments
+        guard args.contains("--screenshot-mode") else { return }
+
+        unlocked = true
+        if let idx = args.firstIndex(of: "--screenshot-tab"), idx + 1 < args.count {
+            let tab = args[idx + 1].lowercased()
+            switch tab {
+            case "home": selectedTab = .home
+            case "checkins": selectedTab = .checkins
+            case "sos": selectedTab = .sos
+            case "profile": selectedTab = .profile
+            default: break
+            }
+        }
     }
 }
 
