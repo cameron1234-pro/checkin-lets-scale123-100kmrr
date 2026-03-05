@@ -10,8 +10,9 @@ final class RevenueCatManager: ObservableObject {
     @Published var isPro = false
     @Published var statusText = "Free"
 
-    // Monthly product ID provided by user
+    // RevenueCat config provided by user
     let monthlyProductId = "camwambam1234"
+    let entitlementId = "openclaw_entitlements"
 
     static let shared = RevenueCatManager()
 
@@ -29,7 +30,7 @@ final class RevenueCatManager: ObservableObject {
         #if canImport(RevenueCat)
         do {
             let info = try await Purchases.shared.customerInfo()
-            let active = !info.entitlements.active.isEmpty
+            let active = info.entitlements.active[entitlementId] != nil
             isPro = active
             statusText = active ? "Pro Active" : "Free"
         } catch {

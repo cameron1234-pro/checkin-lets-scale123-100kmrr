@@ -74,6 +74,7 @@ struct ContentView: View {
                 .font(.headline)
             pairRow("Plan", revenue.statusText)
             pairRow("Monthly Product", revenue.monthlyProductId)
+            pairRow("Entitlement", revenue.entitlementId)
             Text("Pro gates can be attached to SOS automation, extended check-in history, and premium contact workflows.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
