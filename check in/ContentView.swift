@@ -4,109 +4,209 @@ struct ContentView: View {
     @StateObject private var pairing = PairingStore()
     @StateObject private var revenue = RevenueCatManager.shared
 
-    @State private var statusMessage: String = "Ready"
+    @State private var statusMessage = "Ready"
+    @State private var email = ""
+    @State private var password = ""
+    @State private var unlocked = false
 
     var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.black, Color(red: 0.04, green: 0.07, blue: 0.12)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            if unlocked {
+                terminalView
+            } else {
+                authView
+            }
+        }
+        .onOpenURL(perform: handleIncomingURL)
+        .task {
+            await revenue.refreshEntitlements()
+        }
+    }
+
+    private var authView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "shield.lefthalf.filled")
+                .font(.system(size: 36, weight: .semibold))
+                .foregroundStyle(.cyan)
+
+            VStack(spacing: 4) {
+                Text("CheckIn_")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("Access your protocols")
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+
+            VStack(spacing: 12) {
+                field("Email", text: $email, icon: "envelope.fill", placeholder: "agent@sentinel.io")
+                field("Password", text: $password, icon: "lock.fill", placeholder: "••••••••", secure: true)
+
+                Button {
+                    unlocked = true
+                } label: {
+                    HStack {
+                        Text("Access Terminal")
+                        Image(systemName: "arrow.right")
+                    }
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.cyan)
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
+                Button("New agent? Create account") {}
+                    .foregroundStyle(.white.opacity(0.8))
+                    .font(.footnote)
+            }
+            .padding(18)
+            .background(Color.white.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+
+            Text("SECURE · ENCRYPTED · PROTECTED")
+                .font(.caption2)
+                .tracking(1)
+                .foregroundStyle(.white.opacity(0.55))
+        }
+        .padding(24)
+    }
+
+    private var terminalView: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
-                    headerCard
+                VStack(spacing: 14) {
+                    terminalHeader
                     pairingCard
                     monetizationCard
                     actionsCard
                 }
                 .padding()
             }
-            .navigationTitle("Check In")
-            .onOpenURL(perform: handleIncomingURL)
-            .task {
-                await revenue.refreshEntitlements()
-            }
+            .navigationTitle("Terminal")
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
+        .tint(.cyan)
     }
 
-    private var headerCard: some View {
+    private var terminalHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Safety + Pairing", systemImage: "checkmark.shield.fill")
                 .font(.headline)
-                .foregroundStyle(.green)
-
-            Text("Lovable-style flow target: paired session, fast status updates, SOS, and monetized pro features.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
+                .foregroundStyle(.cyan)
             Text("Status: \(statusMessage)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.75))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .terminalCard()
     }
 
     private var pairingCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Pairing")
+            Text("Pairing Session")
                 .font(.headline)
+                .foregroundStyle(.white)
 
             if let current = pairing.current {
-                pairRow("Session", current.sessionId)
-                pairRow("Source", current.source)
-                pairRow("Connected", current.createdAt.formatted(date: .abbreviated, time: .shortened))
+                row("Session", current.sessionId)
+                row("Source", current.source)
+                row("Connected", current.createdAt.formatted(date: .abbreviated, time: .shortened))
             } else {
-                Text("No pairing session yet. Open with deep link:")
-                    .foregroundStyle(.secondary)
+                Text("No active session. Open deep link:")
+                    .foregroundStyle(.white.opacity(0.7))
                 Text("checkin://start?session=<id>&source=promatch")
                     .font(.footnote.monospaced())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.55))
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .terminalCard()
     }
 
     private var monetizationCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Monetization (RevenueCat)")
+            Text("Monetization")
                 .font(.headline)
-            pairRow("Plan", revenue.statusText)
-            pairRow("Monthly Product", revenue.monthlyProductId)
-            pairRow("Entitlement", revenue.entitlementId)
-            Text("Pro gates can be attached to SOS automation, extended check-in history, and premium contact workflows.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white)
+            row("Plan", revenue.statusText)
+            row("Monthly Product", revenue.monthlyProductId)
+            row("Entitlement", revenue.entitlementId)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .terminalCard()
     }
 
     private var actionsCard: some View {
-        HStack(spacing: 12) {
-            Button("Refresh Entitlements") {
+        HStack(spacing: 10) {
+            Button("Refresh") {
                 Task { await revenue.refreshEntitlements() }
             }
             .buttonStyle(.borderedProminent)
+            .tint(.cyan)
 
-            Button("Clear Pairing") {
+            Button("Reset Pairing") {
                 pairing.clear()
                 statusMessage = "Pairing reset"
             }
             .buttonStyle(.bordered)
+            .tint(.white.opacity(0.9))
+
+            Button("Lock") {
+                unlocked = false
+            }
+            .buttonStyle(.bordered)
+            .tint(.white.opacity(0.9))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func pairRow(_ key: String, _ value: String) -> some View {
-        HStack {
+    private func field(_ title: String, text: Binding<String>, icon: String, placeholder: String, secure: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .foregroundStyle(.white.opacity(0.85))
+                .font(.footnote)
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundStyle(.white.opacity(0.6))
+                if secure {
+                    SecureField(placeholder, text: text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } else {
+                    TextField(placeholder, text: text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+            }
+            .padding(10)
+            .background(Color.white.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .foregroundStyle(.white)
+        }
+    }
+
+    private func row(_ key: String, _ value: String) -> some View {
+        HStack(alignment: .top) {
             Text(key)
+                .foregroundStyle(.white.opacity(0.75))
             Spacer()
             Text(value)
                 .fontWeight(.semibold)
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.trailing)
         }
         .font(.subheadline)
@@ -129,7 +229,22 @@ struct ContentView: View {
         }
 
         pairing.apply(sessionId: sessionId, source: sourceApp)
+        unlocked = true
         statusMessage = "Paired to session \(sessionId)"
+    }
+}
+
+private extension View {
+    func terminalCard() -> some View {
+        self
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(Color.white.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
