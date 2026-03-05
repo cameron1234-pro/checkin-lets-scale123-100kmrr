@@ -8,6 +8,23 @@ struct ContentView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var unlocked = false
+    @State private var selectedTab: TerminalTab = .home
+
+    enum TerminalTab: String, CaseIterable {
+        case home = "Home"
+        case checkins = "Check-Ins"
+        case sos = "SOS"
+        case profile = "Profile"
+
+        var icon: String {
+            switch self {
+            case .home: return "house.fill"
+            case .checkins: return "clock.arrow.circlepath"
+            case .sos: return "exclamationmark.triangle.fill"
+            case .profile: return "person.crop.circle"
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -85,14 +102,35 @@ struct ContentView: View {
 
     private var terminalView: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
-                    terminalHeader
-                    pairingCard
-                    monetizationCard
-                    actionsCard
+            VStack(spacing: 14) {
+                Picker("Section", selection: $selectedTab) {
+                    ForEach(TerminalTab.allCases, id: \.self) { tab in
+                        Label(tab.rawValue, systemImage: tab.icon).tag(tab)
+                    }
                 }
-                .padding()
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
+                ScrollView {
+                    VStack(spacing: 14) {
+                        switch selectedTab {
+                        case .home:
+                            terminalHeader
+                            pairingCard
+                            monetizationCard
+                        case .checkins:
+                            checkinsCard
+                            actionsCard
+                        case .sos:
+                            sosCard
+                            actionsCard
+                        case .profile:
+                            profileCard
+                            actionsCard
+                        }
+                    }
+                    .padding()
+                }
             }
             .navigationTitle("Terminal")
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -144,6 +182,65 @@ struct ContentView: View {
             row("Entitlement", revenue.entitlementId)
         }
         .terminalCard()
+    }
+
+    private var checkinsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Recent Check-Ins")
+                .font(.headline)
+                .foregroundStyle(.white)
+            checkinRow("12:15 PM", "Safe", "Office")
+            checkinRow("8:42 AM", "Traveling", "I-270")
+            checkinRow("6:50 AM", "Safe", "Home")
+        }
+        .terminalCard()
+    }
+
+    private var sosCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Emergency Protocol")
+                .font(.headline)
+                .foregroundStyle(.white)
+            Text("Triggering SOS will notify paired contacts and include the latest check-in session data.")
+                .foregroundStyle(.white.opacity(0.75))
+            Button {
+                statusMessage = "SOS simulation started"
+            } label: {
+                Label("Simulate SOS", systemImage: "exclamationmark.triangle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+        }
+        .terminalCard()
+    }
+
+    private var profileCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Agent Profile")
+                .font(.headline)
+                .foregroundStyle(.white)
+            row("Email", email.isEmpty ? "agent@sentinel.io" : email)
+            row("Protocol Tier", revenue.isPro ? "Pro" : "Standard")
+            row("Region", "DMV")
+        }
+        .terminalCard()
+    }
+
+    private func checkinRow(_ time: String, _ state: String, _ location: String) -> some View {
+        HStack {
+            Text(time)
+                .foregroundStyle(.white.opacity(0.7))
+            Spacer()
+            Text(state)
+                .fontWeight(.semibold)
+                .foregroundStyle(state == "Safe" ? .green : .yellow)
+            Text("•")
+                .foregroundStyle(.white.opacity(0.5))
+            Text(location)
+                .foregroundStyle(.white)
+        }
+        .font(.subheadline)
     }
 
     private var actionsCard: some View {
@@ -230,6 +327,7 @@ struct ContentView: View {
 
         pairing.apply(sessionId: sessionId, source: sourceApp)
         unlocked = true
+        selectedTab = .home
         statusMessage = "Paired to session \(sessionId)"
     }
 }
