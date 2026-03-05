@@ -87,7 +87,11 @@ platform :ios do
       project: PROJECT_PATH,
       scheme: SCHEME_NAME,
       export_method: "app-store",
-      destination: "generic/platform=iOS"
+      destination: "generic/platform=iOS",
+      export_options: {
+        signingStyle: "automatic"
+      },
+      xcargs: "-allowProvisioningUpdates"
     )
 
     upload_to_testflight(
