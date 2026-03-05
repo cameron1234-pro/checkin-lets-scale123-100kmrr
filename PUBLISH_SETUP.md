@@ -60,3 +60,4 @@ Open App Store Connect → your app → version page → complete any missing re
 ## Notes
 - `fastlane ios upload_testflight` replaces the old `testflight` lane name.
 - If Fastlane returns a first-version `No data` error, create/open the version in App Store Connect once, save, then rerun `prep_release`.
+- If `bundle exec fastlane` fails due local Bundler mismatch, run `fastlane ...` directly (Homebrew fastlane) as a fallback.
