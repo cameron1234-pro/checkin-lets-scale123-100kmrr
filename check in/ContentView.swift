@@ -73,6 +73,7 @@ struct ContentView: View {
             Text("Monetization (RevenueCat)")
                 .font(.headline)
             pairRow("Plan", revenue.statusText)
+            pairRow("Monthly Product", revenue.monthlyProductId)
             Text("Pro gates can be attached to SOS automation, extended check-in history, and premium contact workflows.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)

@@ -10,6 +10,9 @@ final class RevenueCatManager: ObservableObject {
     @Published var isPro = false
     @Published var statusText = "Free"
 
+    // Monthly product ID provided by user
+    let monthlyProductId = "camwambam1234"
+
     static let shared = RevenueCatManager()
 
     private init() {}
