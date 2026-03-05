@@ -86,7 +86,8 @@ platform :ios do
     build_app(
       project: PROJECT_PATH,
       scheme: SCHEME_NAME,
-      export_method: "app-store"
+      export_method: "app-store",
+      destination: "generic/platform=iOS"
     )
 
     upload_to_testflight(
