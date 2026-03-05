@@ -2,46 +2,61 @@
 
 ## What is already wired
 - Fastlane lanes created in `fastlane/Fastfile`
-- Metadata scaffold created in `fastlane/metadata/en-US/*`
-- App identifier set to `com.promatchusa.app.check-in`
+- Metadata scaffold in `fastlane/metadata/en-US/*`
+- App identifier set to `com.checkin.mobile`
 
-## One-time requirements from you
+## One-time requirements
 1. App Store Connect API key (`.p8`)
    - App Store Connect → Users and Access → Keys → Generate API Key
    - Role: App Manager (or Admin)
-2. Key values:
+2. Key values in `fastlane/.env`:
    - `ASC_KEY_ID`
    - `ASC_ISSUER_ID`
-   - path to `.p8` file (`ASC_KEY_PATH`)
-3. Xcode full app install + selection:
-   - `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
+   - `ASC_KEY_PATH`
+3. Xcode iOS platform installed (required for archive/screenshots):
+   ```bash
+   xcodebuild -downloadPlatform iOS
+   ```
 
-## Local setup commands
+## Local setup
 ```bash
 cd "/Users/camerondorseyproservices/.openclaw/workspace/check in"
-bundle install
 cp fastlane/.env.example fastlane/.env
-# edit fastlane/.env and fill the key vars
+# fill ASC_* values
 ```
 
 ## Validate App Store Connect connection
 ```bash
-bundle exec fastlane ios asc_check
+fastlane ios asc_check
 ```
 
-## Push metadata to App Store Connect (no submit yet)
+## Upload metadata (no screenshots, no binary)
 ```bash
-bundle exec fastlane ios prep_release
+fastlane ios metadata_only
 ```
 
-## Build + upload to TestFlight
+## Upload screenshots only
+Place screenshots under:
+- `fastlane/screenshots/en-US/`
+
+Then run:
 ```bash
-bundle exec fastlane ios testflight
+fastlane ios screenshots_only
 ```
 
-## Final step (manual)
-Open App Store Connect and press **Submit for Review**.
+## Build + upload TestFlight binary
+```bash
+fastlane ios upload_testflight
+```
+
+## Prepare release metadata for current version
+```bash
+fastlane ios prep_release
+```
+
+## Final manual submit
+Open App Store Connect → your app → version page → complete any missing review fields → **Submit for Review**.
 
 ## Notes
-- You can update app text in `fastlane/metadata/en-US/` anytime.
-- Screenshots should be placed under `fastlane/screenshots/` (optional, but recommended).
+- `fastlane ios upload_testflight` replaces the old `testflight` lane name.
+- If Fastlane returns a first-version `No data` error, create/open the version in App Store Connect once, save, then rerun `prep_release`.
