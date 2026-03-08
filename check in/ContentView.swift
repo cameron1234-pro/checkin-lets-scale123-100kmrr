@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Combine
 
 struct ContentView: View {
     @StateObject private var pairing = PairingStore()
@@ -35,6 +36,12 @@ struct ContentView: View {
 
     @State private var lastAlertTimestamp: Date?
     @State private var pulseCritical = false
+    @State private var autoEscalationEnabled = true
+    @State private var escalationMinutes = 15
+    @State private var nextEscalationAt: Date?
+    @State private var deliveryStatus: AlertDeliveryStatus = .idle
+    @State private var shareLocationOnlyInCheckIns = true
+    @State private var allowAnonymousAnalytics = false
 
     @AppStorage("hasCompletedIntake") private var hasCompletedIntake = false
     @State private var rideshareConcern = false
@@ -71,6 +78,9 @@ struct ContentView: View {
         .onOpenURL(perform: handleIncomingURL)
         .task { await revenue.refreshEntitlements() }
         .onDisappear { sosTimer?.invalidate() }
+.onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
+            runEscalationCheck()
+        }
         .onAppear {
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 pulseCritical.toggle()
@@ -310,6 +320,13 @@ struct ContentView: View {
                 card(title: "Last contact alert sent", content: last.formatted(date: .abbreviated, time: .shortened))
             }
 
+            card(title: "Delivery status", content: deliveryStatus.rawValue)
+
+            if let nextEscalationAt, autoEscalationEnabled {
+                card(title: "Auto escalation", content: "Next escalation at " + nextEscalationAt.formatted(date: .omitted, time: .shortened))
+            }
+
+            templateRow
             quickActionsRow
 
             if activeCheckIns.isEmpty {
@@ -351,6 +368,26 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+
+    private var templateRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack {
+                templateButton("Rideshare", type: "Travel")
+                templateButton("First Date", type: "Meetup")
+                templateButton("Night Out", type: "Night Out")
+                templateButton("Travel", type: "Travel")
+            }
+        }
+    }
+
+    private func templateButton(_ label: String, type: String) -> some View {
+        Button(label) {
+            quickStartTemplate(label, type: type)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.purple)
     }
 
     private var quickActionsRow: some View {
@@ -529,6 +566,17 @@ struct ContentView: View {
             card(title: "Email", content: email.isEmpty ? "agent@checkin.app" : email)
             card(title: "Entitlement", content: revenue.isPro ? "Pro" : "Free")
             card(title: "Pairing Session", content: pairing.current?.sessionId ?? "None")
+            card(title: "Plan Features", content: revenue.isPro ? "Pro active: Smart escalation + multi-contact cascade" : "Free: Core check-ins. Upgrade for smart automations")
+
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Share location only during active check-ins", isOn: $shareLocationOnlyInCheckIns)
+                    .tint(.cyan)
+                Toggle("Allow anonymous analytics", isOn: $allowAnonymousAnalytics)
+                    .tint(.purple)
+            }
+            .padding()
+            .background(.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             HStack {
                 Button("Refresh Plan") { Task { await revenue.refreshEntitlements() } }
@@ -641,6 +689,38 @@ struct ContentView: View {
         hasCompletedIntake = true
     }
 
+
+    private func quickStartTemplate(_ title: String, type: String) {
+        let protocolItem = CheckInProtocol(
+            title: title,
+            type: type,
+            emergencyContactId: contacts.first(where: { $0.isPrimary })?.id,
+            status: .allGood
+        )
+        activeCheckIns.insert(protocolItem, at: 0)
+        statusMessage = "Template started: \(title)"
+        scheduleNextEscalation()
+    }
+
+    private func scheduleNextEscalation() {
+        guard autoEscalationEnabled, !activeCheckIns.isEmpty else {
+            nextEscalationAt = nil
+            return
+        }
+        nextEscalationAt = Date().addingTimeInterval(Double(escalationMinutes * 60))
+    }
+
+    private func runEscalationCheck() {
+        guard autoEscalationEnabled, let next = nextEscalationAt, Date() >= next else { return }
+        guard let firstId = activeCheckIns.first?.id, let current = activeCheckIns.first?.status, let nextTier = current.nextTier else {
+            nextEscalationAt = nil
+            return
+        }
+        updateStatus(firstId, nextTier)
+        statusMessage = "Auto-escalated to Tier \(nextTier.tier)"
+        scheduleNextEscalation()
+    }
+
     private func createCheckIn() {
         let title = newCheckInTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
@@ -659,12 +739,16 @@ struct ContentView: View {
         newCheckInType = "Travel"
         newCheckInContactId = nil
         showCreateSheet = false
+        scheduleNextEscalation()
     }
 
     private func updateStatus(_ id: UUID, _ status: SafetyStatus) {
         guard let idx = activeCheckIns.firstIndex(where: { $0.id == id }) else { return }
         activeCheckIns[idx].status = status
         statusMessage = "\(activeCheckIns[idx].title): \(status.rawValue)"
+
+        let feedback = UINotificationFeedbackGenerator()
+        feedback.notificationOccurred(status.isCritical ? .warning : .success)
 
         if status.shouldNotifyContact {
             sendAlertToContact(for: activeCheckIns[idx], status: status)
@@ -676,6 +760,7 @@ struct ContentView: View {
         let finished = activeCheckIns.remove(at: idx)
         pastCheckIns.insert(finished, at: 0)
         statusMessage = "Ended: \(finished.title)"
+        scheduleNextEscalation()
     }
 
     private func addContact() {
@@ -756,8 +841,12 @@ struct ContentView: View {
         let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
 
         if let url = URL(string: "sms:\(cleanNumber)&body=\(encodedBody)") {
+            deliveryStatus = .sending
             UIApplication.shared.open(url)
             lastAlertTimestamp = .now
+            deliveryStatus = .sent
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { deliveryStatus = .delivered }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { deliveryStatus = .viewed }
             statusMessage = "Alert sent to \(contact.name)"
         } else {
             statusMessage = "Could not open SMS for \(contact.name)"
@@ -842,6 +931,14 @@ private struct EmergencyContact: Identifiable {
     }
 }
 
+private enum AlertDeliveryStatus: String {
+    case idle = "No active alert"
+    case sending = "Sending"
+    case sent = "Sent"
+    case delivered = "Delivered"
+    case viewed = "Viewed"
+}
+
 private enum SafetyStatus: String, CaseIterable {
     case allGood = "Everything is okay — this is great"
     case okayButWary = "Still okay, but wary"
@@ -867,6 +964,16 @@ private enum SafetyStatus: String, CaseIterable {
 
     var isCritical: Bool {
         self == .wantOut || self == .emergency
+    }
+
+    var nextTier: SafetyStatus? {
+        switch self {
+        case .allGood: return .okayButWary
+        case .okayButWary: return .okayThisIsWeird
+        case .okayThisIsWeird: return .wantOut
+        case .wantOut: return .emergency
+        case .emergency: return nil
+        }
     }
 
     var color: Color {
