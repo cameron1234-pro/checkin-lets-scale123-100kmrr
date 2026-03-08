@@ -21,3 +21,6 @@ Remove Lovable runtime dependency and ship full Check In branded native app pari
 
 ## Progress log
 - Started native reversion pass: restoring branded native screen architecture now.
+- Replaced interim shell with structured native tabs/screens for Auth, Home, Check-Ins, SOS, and Profile.
+- Preserved pairing deep-link handling (`checkin://start?...`) and monetization status wiring in native flow.
+- Added native check-in logging interactions and SOS countdown trigger/cancel UX scaffolding.
