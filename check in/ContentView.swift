@@ -171,61 +171,73 @@ struct ContentView: View {
 
 
     private var intakeView: some View {
-        VStack(spacing: 16) {
-            Text("Before we start")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-
-            card(title: "Safety setup", content: "Let’s personalize Check In for your routine.")
-
-            Toggle(isOn: $rideshareConcern) {
-                Text("Have you ever been uncomfortable in a rideshare?")
+        ScrollView {
+            VStack(spacing: 16) {
+                Text("Before we start")
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-            }
-            .toggleStyle(.switch)
-            .tint(.cyan)
-            .padding(12)
-            .background(.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            Toggle(isOn: $goesOnDates) {
-                Text("Do you go on a lot of dates?")
+                card(title: "Safety setup", content: "Let’s personalize Check In for your routine.")
+
+                Toggle(isOn: $rideshareConcern) {
+                    Text("Have you ever been uncomfortable in a rideshare?")
+                        .foregroundStyle(.white)
+                }
+                .toggleStyle(.switch)
+                .tint(.cyan)
+                .padding(12)
+                .background(.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                Toggle(isOn: $goesOnDates) {
+                    Text("Do you go on a lot of dates?")
+                        .foregroundStyle(.white)
+                }
+                .toggleStyle(.switch)
+                .tint(.purple)
+                .padding(12)
+                .background(.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                TextField("Trusted contact name", text: $intakeContactName)
+                    .padding(12)
+                    .background(.white.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                     .foregroundStyle(.white)
-            }
-            .toggleStyle(.switch)
-            .tint(.purple)
-            .padding(12)
-            .background(.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            TextField("Trusted contact name", text: $intakeContactName)
-                .padding(12)
-                .background(.white.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                TextField("Trusted contact phone", text: $intakeContactPhone)
+                    .keyboardType(.phonePad)
+                    .padding(12)
+                    .background(.white.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .foregroundStyle(.white)
+
+                Button("Finish Setup") {
+                    completeIntake()
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(LinearGradient(colors: [.cyan, .purple], startPoint: .leading, endPoint: .trailing))
+                .foregroundStyle(.black)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                Button("Quick Start (set contact later)") {
+                    intakeContactName = "Trusted Contact"
+                    intakeContactPhone = "(555) 000-0000"
+                    completeIntake()
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(.white.opacity(0.16))
                 .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            TextField("Trusted contact phone", text: $intakeContactPhone)
-                .keyboardType(.phonePad)
-                .padding(12)
-                .background(.white.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(.white)
-
-            Button("Finish Setup") {
-                completeIntake()
+                Text("You can change this later in Contacts.")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.65))
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(LinearGradient(colors: [.cyan, .purple], startPoint: .leading, endPoint: .trailing))
-            .foregroundStyle(.black)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .disabled(intakeContactName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || intakeContactPhone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            Text("You can change this later in Contacts.")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.65))
+            .padding(24)
         }
-        .padding(24)
     }
 
     private var mainShell: some View {
@@ -672,9 +684,10 @@ struct ContentView: View {
     }
 
     private func completeIntake() {
-        let name = intakeContactName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let phone = intakeContactPhone.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !phone.isEmpty else { return }
+        let nameRaw = intakeContactName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let phoneRaw = intakeContactPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = nameRaw.isEmpty ? "Trusted Contact" : nameRaw
+        let phone = phoneRaw.isEmpty ? "(555) 000-0000" : phoneRaw
 
         contacts = [EmergencyContact(name: name, relation: "Trusted Contact", phone: phone, isPrimary: true)] + contacts.map { c in
             var mutable = c
