@@ -851,18 +851,61 @@ struct ContentView: View {
 
         let body = "Check In Alert: \(checkIn.title) is now at Tier \(status.tier) (\(status.rawValue)). Please check in immediately."
         let cleanNumber = contact.phone.filter { "0123456789+".contains($0) }
-        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
 
-        if let url = URL(string: "sms:\(cleanNumber)&body=\(encodedBody)") {
-            deliveryStatus = .sending
+        deliveryStatus = .sending
+        Task {
+            let backendSent = await sendBackendSMS(to: cleanNumber, message: body)
+            await MainActor.run {
+                if backendSent {
+                    lastAlertTimestamp = .now
+                    deliveryStatus = .sent
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { deliveryStatus = .delivered }
+                    statusMessage = "Backend alert sent to \(contact.name)"
+                } else {
+                    openSMSComposer(number: cleanNumber, body: body, contactName: contact.name)
+                }
+            }
+        }
+    }
+
+
+    private func sendBackendSMS(to phone: String, message: String) async -> Bool {
+        let configured = UserDefaults.standard.string(forKey: "backendAlertsURL")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let endpoint = configured.isEmpty ? "https://YOUR_BACKEND_DOMAIN/api/alerts/sms" : configured
+        guard let url = URL(string: endpoint), !endpoint.contains("YOUR_BACKEND_DOMAIN") else { return false }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let payload: [String: String] = [
+            "to": phone,
+            "message": message,
+            "source": "checkin-ios"
+        ]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+        do {
+            let (_, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse else { return false }
+            return (200...299).contains(http.statusCode)
+        } catch {
+            return false
+        }
+    }
+
+    private func openSMSComposer(number: String, body: String, contactName: String) {
+        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "sms:\(number)&body=\(encodedBody)") {
             UIApplication.shared.open(url)
             lastAlertTimestamp = .now
             deliveryStatus = .sent
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { deliveryStatus = .delivered }
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { deliveryStatus = .viewed }
-            statusMessage = "Alert sent to \(contact.name)"
+            statusMessage = "SMS handoff opened for \(contactName)"
         } else {
-            statusMessage = "Could not open SMS for \(contact.name)"
+            deliveryStatus = .failed
+            statusMessage = "Could not alert \(contactName)"
         }
     }
 
@@ -950,6 +993,7 @@ private enum AlertDeliveryStatus: String {
     case sent = "Sent"
     case delivered = "Delivered"
     case viewed = "Viewed"
+    case failed = "Failed"
 }
 
 private enum SafetyStatus: String, CaseIterable {
