@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @StateObject private var pairing = PairingStore()
@@ -44,8 +45,12 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color.black, Color(red: 0.05, green: 0.09, blue: 0.14)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
+            LinearGradient(
+                colors: [Color(red: 0.05, green: 0.08, blue: 0.18), Color(red: 0.15, green: 0.05, blue: 0.20), .black],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
             if unlocked {
                 mainShell
@@ -61,7 +66,7 @@ struct ContentView: View {
         .alert("SOS Triggered", isPresented: $showSosAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Emergency flow triggered. In production this would notify your primary contact immediately.")
+            Text("Emergency flow triggered. Contact alert has been prepared.")
         }
     }
 
@@ -83,13 +88,13 @@ struct ContentView: View {
                 .textInputAutocapitalization(.never)
                 .keyboardType(.emailAddress)
                 .padding(12)
-                .background(.white.opacity(0.08))
+                .background(.white.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .foregroundStyle(.white)
 
             SecureField("Password", text: $password)
                 .padding(12)
-                .background(.white.opacity(0.08))
+                .background(.white.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .foregroundStyle(.white)
 
@@ -180,22 +185,53 @@ struct ContentView: View {
             } else {
                 ForEach(activeCheckIns) { checkIn in
                     VStack(spacing: 8) {
-                        card(title: "\(checkIn.icon) \(checkIn.title)", content: "Type: \(checkIn.type)\nStatus: \(checkIn.status.rawValue)")
+                        statusCard(for: checkIn)
 
-                        HStack {
-                            Button("Safe") { updateStatus(checkIn.id, .safe) }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.green)
-                            Button("Alert") { updateStatus(checkIn.id, .alert) }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.orange)
-                            Button("End") { endCheckIn(checkIn.id) }
-                                .buttonStyle(.bordered)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack {
+                                ForEach(SafetyStatus.allCases, id: \.self) { status in
+                                    Button(status.shortLabel) {
+                                        updateStatus(checkIn.id, status)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(status.color)
+                                }
+                                Button("End") { endCheckIn(checkIn.id) }
+                                    .buttonStyle(.bordered)
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    private func statusCard(for checkIn: CheckInProtocol) -> some View {
+        let current = checkIn.status
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("\(checkIn.icon) \(checkIn.title)")
+                .font(.headline)
+                .foregroundStyle(.white)
+            Text("Type: \(checkIn.type)")
+                .foregroundStyle(.white.opacity(0.9))
+            Text("Tier \(current.tier): \(current.rawValue)")
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(
+            LinearGradient(
+                colors: [current.color.opacity(0.85), .black.opacity(0.65)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(current.color.opacity(0.8), lineWidth: 1)
+        )
     }
 
     private var contactsView: some View {
@@ -234,7 +270,7 @@ struct ContentView: View {
                 card(title: "No History", content: "Completed check-ins will appear here.")
             } else {
                 ForEach(pastCheckIns) { item in
-                    card(title: "\(item.icon) \(item.title)", content: "\(item.type) • \(item.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                    card(title: "\(item.icon) \(item.title)", content: "\(item.type) • \(item.status.rawValue) • \(item.createdAt.formatted(date: .abbreviated, time: .shortened))")
                 }
             }
         }
@@ -339,12 +375,22 @@ struct ContentView: View {
                 .font(.headline)
                 .foregroundStyle(.white)
             Text(content)
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.88))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding()
-        .background(.white.opacity(0.08))
+        .background(
+            LinearGradient(
+                colors: [.white.opacity(0.18), .white.opacity(0.06)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+        )
     }
 
     private func createCheckIn() {
@@ -355,7 +401,7 @@ struct ContentView: View {
             title: title,
             type: newCheckInType,
             emergencyContactId: newCheckInContactId,
-            status: .safe
+            status: .allGood
         )
 
         activeCheckIns.insert(protocolItem, at: 0)
@@ -371,6 +417,10 @@ struct ContentView: View {
         guard let idx = activeCheckIns.firstIndex(where: { $0.id == id }) else { return }
         activeCheckIns[idx].status = status
         statusMessage = "\(activeCheckIns[idx].title): \(status.rawValue)"
+
+        if status.shouldNotifyContact {
+            sendAlertToContact(for: activeCheckIns[idx], status: status)
+        }
     }
 
     private func endCheckIn(_ id: UUID) {
@@ -415,6 +465,32 @@ struct ContentView: View {
         statusMessage = "Primary contact updated"
     }
 
+    private func primaryContact(for checkIn: CheckInProtocol) -> EmergencyContact? {
+        if let id = checkIn.emergencyContactId,
+           let linked = contacts.first(where: { $0.id == id }) {
+            return linked
+        }
+        return contacts.first(where: { $0.isPrimary }) ?? contacts.first
+    }
+
+    private func sendAlertToContact(for checkIn: CheckInProtocol, status: SafetyStatus) {
+        guard let contact = primaryContact(for: checkIn) else {
+            statusMessage = "Alert queued: add a contact first"
+            return
+        }
+
+        let body = "Check In Alert: \(checkIn.title) is now at Tier \(status.tier) (\(status.rawValue)). Please check in immediately."
+        let cleanNumber = contact.phone.filter { "0123456789+".contains($0) }
+        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+
+        if let url = URL(string: "sms:\(cleanNumber)&body=\(encodedBody)") {
+            UIApplication.shared.open(url)
+            statusMessage = "Alert sent to \(contact.name)"
+        } else {
+            statusMessage = "Could not open SMS for \(contact.name)"
+        }
+    }
+
     private func armSos() {
         sosArmed = true
         sosCountdown = 10
@@ -440,6 +516,9 @@ struct ContentView: View {
     private func triggerSos() {
         cancelSos()
         statusMessage = "SOS triggered"
+        if let first = activeCheckIns.first {
+            sendAlertToContact(for: first, status: .emergency)
+        }
         showSosAlert = true
     }
 
@@ -483,9 +562,40 @@ private struct EmergencyContact: Identifiable {
     var isPrimary: Bool
 }
 
-private enum SafetyStatus: String {
-    case safe = "Safe"
-    case alert = "Alert"
+private enum SafetyStatus: String, CaseIterable {
+    case allGood = "Everything is okay — this is great"
+    case okayButWary = "Still okay, but wary"
+    case okayThisIsWeird = "Okay… this is weird"
+    case wantOut = "I want to get out of here"
+    case emergency = "Emergency — this is bad"
+
+    var tier: Int {
+        switch self {
+        case .allGood: return 1
+        case .okayButWary: return 2
+        case .okayThisIsWeird: return 3
+        case .wantOut: return 4
+        case .emergency: return 5
+        }
+    }
+
+    var shortLabel: String {
+        "T\(tier)"
+    }
+
+    var shouldNotifyContact: Bool {
+        self == .wantOut || self == .emergency
+    }
+
+    var color: Color {
+        switch self {
+        case .allGood: return .green
+        case .okayButWary: return .mint
+        case .okayThisIsWeird: return .yellow
+        case .wantOut: return .orange
+        case .emergency: return .red
+        }
+    }
 }
 
 #Preview {
