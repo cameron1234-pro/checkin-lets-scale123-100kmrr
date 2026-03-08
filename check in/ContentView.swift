@@ -36,6 +36,12 @@ struct ContentView: View {
     @State private var lastAlertTimestamp: Date?
     @State private var pulseCritical = false
 
+    @AppStorage("hasCompletedIntake") private var hasCompletedIntake = false
+    @State private var rideshareConcern = false
+    @State private var goesOnDates = false
+    @State private var intakeContactName = ""
+    @State private var intakeContactPhone = ""
+
     let checkInTypes = ["Travel", "Meetup", "Night Out", "Custom"]
 
     enum AppTab: String, CaseIterable {
@@ -53,7 +59,11 @@ struct ContentView: View {
             backgroundView
 
             if unlocked {
-                mainShell
+                if hasCompletedIntake {
+                    mainShell
+                } else {
+                    intakeView
+                }
             } else {
                 authView
             }
@@ -78,7 +88,7 @@ struct ContentView: View {
     private var backgroundView: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(red: 0.04, green: 0.07, blue: 0.16), Color(red: 0.16, green: 0.06, blue: 0.22), .black],
+                colors: [Color(red: 0.02, green: 0.08, blue: 0.20), Color(red: 0.10, green: 0.05, blue: 0.28), .black],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -97,7 +107,7 @@ struct ContentView: View {
                 .offset(x: 160, y: -220)
 
             Circle()
-                .fill(Color.orange.opacity(0.10))
+                .fill(Color.blue.opacity(0.14))
                 .frame(width: 220, height: 220)
                 .blur(radius: 24)
                 .offset(x: -160, y: 280)
@@ -145,6 +155,65 @@ struct ContentView: View {
             Text("Secure • Encrypted • Check In Companion")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
+        }
+        .padding(24)
+    }
+
+
+    private var intakeView: some View {
+        VStack(spacing: 16) {
+            Text("Before we start")
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            card(title: "Safety setup", content: "Let’s personalize Check In for your routine.")
+
+            Toggle(isOn: $rideshareConcern) {
+                Text("Have you ever been uncomfortable in a rideshare?")
+                    .foregroundStyle(.white)
+            }
+            .toggleStyle(.switch)
+            .tint(.cyan)
+            .padding(12)
+            .background(.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            Toggle(isOn: $goesOnDates) {
+                Text("Do you go on a lot of dates?")
+                    .foregroundStyle(.white)
+            }
+            .toggleStyle(.switch)
+            .tint(.purple)
+            .padding(12)
+            .background(.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            TextField("Trusted contact name", text: $intakeContactName)
+                .padding(12)
+                .background(.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(.white)
+
+            TextField("Trusted contact phone", text: $intakeContactPhone)
+                .keyboardType(.phonePad)
+                .padding(12)
+                .background(.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(.white)
+
+            Button("Finish Setup") {
+                completeIntake()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(LinearGradient(colors: [.cyan, .purple], startPoint: .leading, endPoint: .trailing))
+            .foregroundStyle(.black)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .disabled(intakeContactName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || intakeContactPhone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            Text("You can change this later in Contacts.")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.65))
         }
         .padding(24)
     }
@@ -552,6 +621,24 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.white.opacity(0.16), lineWidth: 1)
         )
+    }
+
+    private func completeIntake() {
+        let name = intakeContactName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let phone = intakeContactPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !phone.isEmpty else { return }
+
+        contacts = [EmergencyContact(name: name, relation: "Trusted Contact", phone: phone, isPrimary: true)] + contacts.map { c in
+            var mutable = c
+            mutable.isPrimary = false
+            return mutable
+        }
+
+        statusMessage = "Safety setup complete"
+        if rideshareConcern { statusMessage += " • Rideshare watch enabled" }
+        if goesOnDates { statusMessage += " • Date safety watch enabled" }
+
+        hasCompletedIntake = true
     }
 
     private func createCheckIn() {
