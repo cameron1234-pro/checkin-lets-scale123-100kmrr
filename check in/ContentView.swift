@@ -4,7 +4,7 @@ struct ContentView: View {
     @StateObject private var pairing = PairingStore()
     @StateObject private var revenue = RevenueCatManager.shared
 
-    @State private var unlocked = false
+    @State private var unlocked = true
     @State private var email = ""
     @State private var password = ""
     @State private var statusMessage = "Ready"
