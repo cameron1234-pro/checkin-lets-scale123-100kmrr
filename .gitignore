@@ -1,0 +1,7 @@
+# Build artifacts
+*.ipa
+*.dSYM.zip
+
+# Fastlane local/runtime files
+fastlane/report.xml
+fastlane/.env
