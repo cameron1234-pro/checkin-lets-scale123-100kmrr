@@ -21,6 +21,17 @@ JSON body:
 
 ## 2) Minimal Twilio backend (Node/Express)
 
+A ready backend is now in `backend/` in this repo.
+
+Run:
+```bash
+cd backend
+npm install
+cp .env.example .env
+# fill .env values
+npm start
+```
+
 ```js
 import express from "express";
 import twilio from "twilio";
