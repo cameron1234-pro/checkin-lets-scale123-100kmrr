@@ -42,8 +42,8 @@ struct ContentView: View {
     @State private var deliveryStatus: AlertDeliveryStatus = .idle
     @State private var shareLocationOnlyInCheckIns = true
     @State private var allowAnonymousAnalytics = false
-    @AppStorage("backendAlertsURL") private var backendAlertsURL = ""
-    @AppStorage("backendAlertsKey") private var backendAlertsKey = ""
+    @AppStorage("backendAlertsURL") private var backendAlertsURL = "https://daily-sparkle-checkin-production.up.railway.app/api/alerts/sms"
+    @AppStorage("backendAlertsKey") private var backendAlertsKey = "checkin_live_key_20260308"
 
     @AppStorage("hasCompletedIntake") private var hasCompletedIntake = false
     @State private var rideshareConcern = false
