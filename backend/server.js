@@ -7,16 +7,27 @@ app.use(express.json());
 const {
   TWILIO_ACCOUNT_SID,
   TWILIO_AUTH_TOKEN,
+  TWILIO_API_KEY_SID,
+  TWILIO_API_KEY_SECRET,
   TWILIO_FROM_NUMBER,
   ALERTS_API_KEY,
   PORT = 8787,
 } = process.env;
 
-if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
-  console.warn("Missing Twilio env vars. Set TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_FROM_NUMBER.");
+if (!TWILIO_ACCOUNT_SID || !TWILIO_FROM_NUMBER) {
+  console.warn("Missing required env vars. Set TWILIO_ACCOUNT_SID and TWILIO_FROM_NUMBER.");
 }
 
-const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+const hasAuthToken = Boolean(TWILIO_AUTH_TOKEN);
+const hasApiKeyPair = Boolean(TWILIO_API_KEY_SID && TWILIO_API_KEY_SECRET);
+
+if (!hasAuthToken && !hasApiKeyPair) {
+  console.warn("Set either TWILIO_AUTH_TOKEN or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET.");
+}
+
+const client = hasAuthToken
+  ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+  : twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, { accountSid: TWILIO_ACCOUNT_SID });
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

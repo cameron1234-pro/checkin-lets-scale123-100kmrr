@@ -42,6 +42,8 @@ struct ContentView: View {
     @State private var deliveryStatus: AlertDeliveryStatus = .idle
     @State private var shareLocationOnlyInCheckIns = true
     @State private var allowAnonymousAnalytics = false
+    @AppStorage("backendAlertsURL") private var backendAlertsURL = ""
+    @AppStorage("backendAlertsKey") private var backendAlertsKey = ""
 
     @AppStorage("hasCompletedIntake") private var hasCompletedIntake = false
     @State private var rideshareConcern = false
@@ -590,6 +592,29 @@ struct ContentView: View {
             .background(.white.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Backend Alerts")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                TextField("https://your-backend/api/alerts/sms", text: $backendAlertsURL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(10)
+                    .background(.white.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .foregroundStyle(.white)
+                SecureField("Alerts API key", text: $backendAlertsKey)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(10)
+                    .background(.white.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .foregroundStyle(.white)
+            }
+            .padding()
+            .background(.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
             HStack {
                 Button("Refresh Plan") { Task { await revenue.refreshEntitlements() } }
                     .buttonStyle(.borderedProminent)
@@ -870,13 +895,17 @@ struct ContentView: View {
 
 
     private func sendBackendSMS(to phone: String, message: String) async -> Bool {
-        let configured = UserDefaults.standard.string(forKey: "backendAlertsURL")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let endpoint = configured.isEmpty ? "https://YOUR_BACKEND_DOMAIN/api/alerts/sms" : configured
+        let endpoint = backendAlertsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "https://YOUR_BACKEND_DOMAIN/api/alerts/sms"
+            : backendAlertsURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: endpoint), !endpoint.contains("YOUR_BACKEND_DOMAIN") else { return false }
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if !backendAlertsKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            req.setValue(backendAlertsKey.trimmingCharacters(in: .whitespacesAndNewlines), forHTTPHeaderField: "x-alerts-key")
+        }
 
         let payload: [String: String] = [
             "to": phone,
