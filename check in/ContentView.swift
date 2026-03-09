@@ -1045,7 +1045,7 @@ private enum SafetyStatus: String, CaseIterable {
     var shortLabel: String { "T\(tier)" }
 
     var shouldNotifyContact: Bool {
-        self == .wantOut || self == .emergency
+        true
     }
 
     var isCritical: Bool {
